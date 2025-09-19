@@ -2,7 +2,6 @@
 
 name: Create ISO from Release ZIP
 
-# このワークフローが実行されるタイミングを指定
 on:
   # 1. 新しいリリースが公開されたら実行
   release:
@@ -27,7 +26,7 @@ jobs:
   build-iso:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # リリースアセットの読み書きに必要
 
     steps:
       # (1) 実行方法に応じて、対象のタグ名とZIPファイル名を変数にセットする
@@ -42,13 +41,13 @@ jobs:
             echo "ZIP_NAME=${{ github.event.inputs.zip_name }}" >> $GITHUB_OUTPUT
           fi
 
-      # (2) リリースから指定されたZIPファイルをダウンロード
-      - name: Download Release ZIP Asset
-        uses: dsaltares/download-release-asset@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.get_vars.outputs.TAG_NAME }}
-          file: ${{ steps.get_vars.outputs.ZIP_NAME }}
+      # (2) GitHub公式CLIを使ってリリースからZIPファイルをダウンロード
+      # <-- ★★★ このステップを公式CLIを使うように変更 ★★★
+      - name: Download Release ZIP Asset via gh CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ steps.get_vars.outputs.TAG_NAME }}" --pattern "${{ steps.get_vars.outputs.ZIP_NAME }}"
           
       # (3) ISOイメージ作成ツールをインストール
       - name: Install genisoimage
