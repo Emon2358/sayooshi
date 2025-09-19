@@ -3,9 +3,11 @@
 name: Create ISO from Release ZIP
 
 on:
+  # 1. 新しいリリースが公開されたら実行
   release:
     types: [published]
   
+  # 2. 手動で実行できるようにする (workflow_dispatch)
   workflow_dispatch:
     inputs:
       tag:
@@ -16,6 +18,7 @@ on:
         required: true
         default: 'sayooshi-files.zip'
 
+# リリース時に使われるZIPファイル名を定義
 env:
   RELEASE_ZIP_NAME: "sayooshi-files.zip"
 
@@ -23,11 +26,10 @@ jobs:
   build-iso:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # リリースアセットの読み書きに必要
 
     steps:
-      # (1) リポジトリのチェックアウトを追加
-      # <-- ★★★ このステップを追加しました ★★★
+      # (1) リポジトリの情報を読み込む (ghコマンドの動作に必須)
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -60,10 +62,14 @@ jobs:
           mkdir -p isocontents
           unzip "${{ steps.get_vars.outputs.ZIP_NAME }}" -d isocontents
 
-      # (6) isocontentsディレクトリからISOファイルを作成
+      # (6) ZIP解凍後のサブフォルダ構造を解決し、正しくISOファイルを作成
       - name: Create ISO Image
         run: |
-          genisoimage -V SAYOOSHI -J -r -o sayooshi.iso isocontents/
+          # isocontentsの中にあるサブフォルダ名を特定する
+          SUBFOLDER=$(ls isocontents/)
+          
+          # そのサブフォルダの中身をISOのルート(直下)に書き込むようにパスを修正
+          genisoimage -V SAYOOSHI -J -r -o sayooshi.iso isocontents/$SUBFOLDER/
       
       # (7) 作成したISOファイルを同じリリースにアップロード
       - name: Upload ISO to Release
