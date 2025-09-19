@@ -62,14 +62,24 @@ jobs:
           mkdir -p isocontents
           unzip "${{ steps.get_vars.outputs.ZIP_NAME }}" -d isocontents
 
-      # (6) ZIP解凍後のサブフォルダ構造を解決し、正しくISOファイルを作成
-      - name: Create ISO Image
+      # (6) 文字化け対策をしてISOファイルを作成
+      # <-- ★★★ このステップを改善しました ★★★
+      - name: Prepare files and Create ISO
         run: |
-          # isocontentsの中にあるサブフォルダ名を特定する
-          SUBFOLDER=$(ls isocontents/)
+          # isocontentsディレクトリに移動
+          cd isocontents
           
-          # そのサブフォルダの中身をISOのルート(直下)に書き込むようにパスを修正
-          genisoimage -V SAYOOSHI -J -r -o sayooshi.iso isocontents/$SUBFOLDER/
+          # 中にある（文字化け可能性のある）サブフォルダ名を取得
+          SUBFOLDER_NAME=$(ls)
+          
+          # サブフォルダの中身を全て現在の場所(isocontents)に移動
+          mv "$SUBFOLDER_NAME"/* .
+          
+          # 親ディレクトリに戻る
+          cd ..
+          
+          # isocontentsディレクトリを元にISOを作成
+          genisoimage -V SAYOOSHI -J -r -o sayooshi.iso isocontents/
       
       # (7) 作成したISOファイルを同じリリースにアップロード
       - name: Upload ISO to Release
