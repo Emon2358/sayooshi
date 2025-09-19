@@ -1,0 +1,56 @@
+# .github/workflows/create-iso.yml
+
+name: Create ISO from Release ZIP
+
+# このワークフローが実行されるタイミングを指定
+on:
+  release:
+    types: [published] # 新しいリリースが公開されたら実行
+
+# 環境変数の設定
+env:
+  # ここに変換したいZIPファイルの名前を正確に指定
+  ZIP_NAME: "sayooshi-files.zip"
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest # ubuntu環境で実行
+    permissions:
+      contents: write # リリースアセットを書き込むために必要
+
+    steps:
+      # (1) リリースから指定されたZIPファイルをダウンロード
+      - name: Download Release ZIP Asset
+        uses: dsaltares/fetch-release-asset@1.1.0
+        with:
+          file: ${{ env.ZIP_NAME }} # 環境変数で指定したZIPファイル名
+          repo-token: ${{ secrets.GITHUB_TOKEN }} # 自動で付与されるトークン
+
+      # (2) ISOイメージ作成ツールをインストール
+      - name: Install genisoimage
+        run: sudo apt-get update && sudo apt-get install -y genisoimage
+
+      # (3) ダウンロードしたZIPを解凍
+      - name: Unzip Asset
+        run: |
+          mkdir -p isocontents # ISOの中身を入れるディレクトリを作成
+          unzip ${{ env.ZIP_NAME }} -d isocontents # isocontentsの中に解凍
+
+      # (4) isocontentsディレクトリからISOファイルを作成
+      - name: Create ISO Image
+        run: |
+          # genisoimageコマンドでISOを作成
+          # -V: ボリュームラベル（CDの名前）を設定
+          # -J -r: Windows/Unix両対応のファイル名形式
+          # -o: 出力するISOファイル名
+          genisoimage -V SAYOOSHI -J -r -o sayooshi.iso isocontents/
+      
+      # (5) 作成したISOファイルを同じリリースにアップロード
+      - name: Upload ISO to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: sayooshi.iso # 作成したISOファイル
+          asset_name: sayooshi.iso # GitHub上で表示されるアセット名
+          tag: ${{ github.ref }} # 現在のリリースバージョンタグ
+          overwrite: true # 既に同名ファイルがあれば上書き
