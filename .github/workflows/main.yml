@@ -3,11 +3,9 @@
 name: Create ISO from Release ZIP
 
 on:
-  # 1. 新しいリリースが公開されたら実行
   release:
     types: [published]
   
-  # 2. 手動で実行できるようにする (workflow_dispatch)
   workflow_dispatch:
     inputs:
       tag:
@@ -18,7 +16,6 @@ on:
         required: true
         default: 'sayooshi-files.zip'
 
-# リリース時に使われるZIPファイル名を定義
 env:
   RELEASE_ZIP_NAME: "sayooshi-files.zip"
 
@@ -26,10 +23,15 @@ jobs:
   build-iso:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # リリースアセットの読み書きに必要
+      contents: write
 
     steps:
-      # (1) 実行方法に応じて、対象のタグ名とZIPファイル名を変数にセットする
+      # (1) リポジトリのチェックアウトを追加
+      # <-- ★★★ このステップを追加しました ★★★
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # (2) 実行方法に応じて、対象のタグ名とZIPファイル名を変数にセットする
       - name: Set target variables
         id: get_vars
         run: |
@@ -41,30 +43,29 @@ jobs:
             echo "ZIP_NAME=${{ github.event.inputs.zip_name }}" >> $GITHUB_OUTPUT
           fi
 
-      # (2) GitHub公式CLIを使ってリリースからZIPファイルをダウンロード
-      # <-- ★★★ このステップを公式CLIを使うように変更 ★★★
+      # (3) GitHub公式CLIを使ってリリースからZIPファイルをダウンロード
       - name: Download Release ZIP Asset via gh CLI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release download "${{ steps.get_vars.outputs.TAG_NAME }}" --pattern "${{ steps.get_vars.outputs.ZIP_NAME }}"
           
-      # (3) ISOイメージ作成ツールをインストール
+      # (4) ISOイメージ作成ツールをインストール
       - name: Install genisoimage
         run: sudo apt-get update && sudo apt-get install -y genisoimage
 
-      # (4) ダウンロードしたZIPを解凍
+      # (5) ダウンロードしたZIPを解凍
       - name: Unzip Asset
         run: |
           mkdir -p isocontents
           unzip "${{ steps.get_vars.outputs.ZIP_NAME }}" -d isocontents
 
-      # (5) isocontentsディレクトリからISOファイルを作成
+      # (6) isocontentsディレクトリからISOファイルを作成
       - name: Create ISO Image
         run: |
           genisoimage -V SAYOOSHI -J -r -o sayooshi.iso isocontents/
       
-      # (6) 作成したISOファイルを同じリリースにアップロード
+      # (7) 作成したISOファイルを同じリリースにアップロード
       - name: Upload ISO to Release
         uses: svenstaro/upload-release-action@v2
         with:
